@@ -28,18 +28,31 @@ function LoginForm() {
       if (tab === 'signin') {
         const result = await authClient.signIn.email({ email, password });
         if (result.error) {
-          setError(result.error.message ?? 'Identifiants incorrects');
+          const code = result.error.code;
+          if (code === 'INVALID_EMAIL_OR_PASSWORD') setError('Email ou mot de passe incorrect.');
+          else if (code === 'USER_NOT_FOUND') setError('Aucun compte trouvé avec cet email.');
+          else if (code === 'TOO_MANY_REQUESTS') setError('Trop de tentatives. Réessayez dans quelques minutes.');
+          else setError(result.error.message ?? 'Erreur de connexion. Vérifiez vos identifiants.');
           return;
         }
       } else {
+        if (password.length < 8) {
+          setError('Le mot de passe doit contenir au moins 8 caractères.');
+          return;
+        }
         const result = await authClient.signUp.email({ email, password, name });
         if (result.error) {
-          setError(result.error.message ?? "Erreur lors de l'inscription");
+          const code = result.error.code;
+          if (code === 'USER_ALREADY_EXISTS') setError('Un compte existe déjà avec cet email.');
+          else if (code === 'WEAK_PASSWORD') setError('Mot de passe trop faible.');
+          else setError(result.error.message ?? "Erreur lors de l'inscription.");
           return;
         }
       }
       router.push(callbackUrl);
       router.refresh();
+    } catch {
+      setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
