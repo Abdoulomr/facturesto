@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { items, total, tableNumber, notes } = body;
+  const { items, total, tableNumber, notes, deductions } = body;
 
   if (!items || items.length === 0) {
     return NextResponse.json({ error: 'Aucun article' }, { status: 400 });
@@ -35,6 +35,12 @@ export async function POST(request: Request) {
       tableNumber: tableNumber ?? '',
       notes: notes ?? '',
       createdById: session?.user?.id ?? null,
+      deductions: deductions && deductions.length > 0 ? {
+        create: (deductions as { label: string; amount: number }[]).map((d) => ({
+          label: d.label,
+          amount: d.amount,
+        })),
+      } : undefined,
       items: {
         create: items.map((item: {
           productId: string;
@@ -53,6 +59,7 @@ export async function POST(request: Request) {
     },
     include: {
       items: true,
+      deductions: true,
       createdBy: { select: { id: true, name: true, email: true } },
     },
   });

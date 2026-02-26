@@ -19,6 +19,8 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 
+type Credit = { label: string; amount: number };
+
 export default function NewInvoicePage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,6 +29,12 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [emptyCartDialog, setEmptyCartDialog] = useState(false);
+
+  // Credits (avoirs)
+  const [credits, setCredits] = useState<Credit[]>([]);
+  const [showCreditForm, setShowCreditForm] = useState(false);
+  const [creditLabel, setCreditLabel] = useState('Avoir sur facture précédente');
+  const [creditAmount, setCreditAmount] = useState('');
 
   useEffect(() => {
     fetch('/api/products')
@@ -76,7 +84,22 @@ export default function NewInvoicePage() {
     setItems((prev) => prev.filter((i) => i.productId !== productId));
   }
 
-  const total = items.reduce((sum, i) => sum + i.total, 0);
+  function addCredit() {
+    const amount = parseFloat(creditAmount.replace(',', '.'));
+    if (!creditLabel.trim() || isNaN(amount) || amount <= 0) return;
+    setCredits((prev) => [...prev, { label: creditLabel.trim(), amount }]);
+    setCreditLabel('Avoir sur facture précédente');
+    setCreditAmount('');
+    setShowCreditForm(false);
+  }
+
+  function removeCredit(index: number) {
+    setCredits((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+  const creditsTotal = credits.reduce((sum, c) => sum + c.amount, 0);
+  const total = Math.max(0, subtotal - creditsTotal);
 
   async function handleSubmit() {
     if (items.length === 0) {
@@ -86,7 +109,13 @@ export default function NewInvoicePage() {
     const res = await fetch('/api/invoices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, total, tableNumber, notes }),
+      body: JSON.stringify({
+        items,
+        total,
+        tableNumber,
+        notes,
+        deductions: credits,
+      }),
     });
     const invoice = await res.json();
     router.push(`/invoices/${invoice.id}`);
@@ -182,7 +211,7 @@ export default function NewInvoicePage() {
                   Cliquez sur un produit<br />pour l&apos;ajouter
                 </div>
               ) : (
-                <div className="space-y-2 mb-4 max-h-72 overflow-y-auto">
+                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
                   {items.map((item) => (
                     <div
                       key={item.productId}
@@ -226,10 +255,89 @@ export default function NewInvoicePage() {
                 </div>
               )}
 
+              {/* Credits / Avoirs */}
+              {items.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wide">
+                      Avoirs / Crédits
+                    </span>
+                    <button
+                      onClick={() => setShowCreditForm((v) => !v)}
+                      className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                    >
+                      {showCreditForm ? 'Annuler' : '+ Ajouter'}
+                    </button>
+                  </div>
+
+                  {credits.length > 0 && (
+                    <div className="space-y-1 mb-2">
+                      {credits.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm bg-blue-50 border border-blue-100 rounded px-2 py-1.5">
+                          <span className="text-stone-600 truncate flex-1">{c.label}</span>
+                          <span className="text-blue-600 font-medium ml-2 shrink-0">− {formatFCFA(c.amount)}</span>
+                          <button
+                            onClick={() => removeCredit(i)}
+                            className="text-stone-300 hover:text-red-400 ml-2 font-bold text-base leading-none"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {showCreditForm && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+                      <div>
+                        <label className="text-xs text-blue-700 mb-1 block">Libellé</label>
+                        <Input
+                          value={creditLabel}
+                          onChange={(e) => setCreditLabel(e.target.value)}
+                          placeholder="ex: Avoir sur facture précédente"
+                          className="text-sm h-8"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-blue-700 mb-1 block">Montant (FCFA)</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={creditAmount}
+                          onChange={(e) => setCreditAmount(e.target.value)}
+                          placeholder="ex: 5000"
+                          className="text-sm h-8"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={addCredit}
+                        disabled={!creditLabel.trim() || !creditAmount}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white h-8 text-xs"
+                      >
+                        Appliquer le crédit
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Total & submit */}
               {items.length > 0 && (
                 <>
                   <Separator className="mb-3" />
+                  {creditsTotal > 0 && (
+                    <div className="space-y-1 mb-2">
+                      <div className="flex justify-between text-sm text-stone-500">
+                        <span>Sous-total</span>
+                        <span>{formatFCFA(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-blue-600">
+                        <span>Avoirs</span>
+                        <span>− {formatFCFA(creditsTotal)}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between text-lg font-bold text-stone-800 mb-1">
                     <span>Total</span>
                     <span>{formatFCFA(total)}</span>
