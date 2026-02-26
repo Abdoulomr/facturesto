@@ -214,6 +214,9 @@ export default function InvoiceDetailPage() {
           <Link href="/">← Retour aux factures</Link>
         </Button>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/invoices/${invoice.id}/edit`}>✏️ Modifier</Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={exportAsPng} disabled={exporting}>
             ↓ PNG
           </Button>
