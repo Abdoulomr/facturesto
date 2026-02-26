@@ -260,7 +260,9 @@ export default function InvoiceDetailPage() {
                 <div key={d.id} className="flex items-center justify-between text-sm bg-white border border-red-100 rounded px-3 py-1.5">
                   <span className="text-stone-700">
                     <span className="font-medium">{d.label}</span>
-                    <span className="ml-2 text-red-600">− {formatFCFA(d.amount)}</span>
+                    <span className={`ml-2 ${d.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                      {d.type === 'credit' ? '+' : '−'} {formatFCFA(d.amount)}
+                    </span>
                   </span>
                   <button
                     onClick={() => removeDeduction(d.id)}

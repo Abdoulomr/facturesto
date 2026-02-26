@@ -8,10 +8,11 @@ async function recalcTotal(invoiceId: string) {
   });
   if (!invoice) return;
   const subtotal = invoice.items.reduce((s, i) => s + i.total, 0);
-  const deducted = invoice.deductions.reduce((s, d) => s + d.amount, 0);
+  const credited = invoice.deductions.filter((d) => d.type === 'credit').reduce((s, d) => s + d.amount, 0);
+  const deducted = invoice.deductions.filter((d) => d.type !== 'credit').reduce((s, d) => s + d.amount, 0);
   await prisma.invoice.update({
     where: { id: invoiceId },
-    data: { total: Math.max(0, subtotal - deducted) },
+    data: { total: Math.max(0, subtotal + credited - deducted) },
   });
 }
 
