@@ -17,6 +17,7 @@ type AddFormProps = {
 function AddForm({ type, defaultLabel, onAdd, onClose }: AddFormProps) {
   const [label, setLabel] = useState(defaultLabel);
   const [amount, setAmount] = useState('');
+  // credit = "il me doit" → soustrait ; deduction = "je lui dois" → ajoute
   const isCredit = type === 'credit';
 
   function handleAdd() {
@@ -26,11 +27,10 @@ function AddForm({ type, defaultLabel, onAdd, onClose }: AddFormProps) {
     onClose();
   }
 
-  const color = isCredit ? 'green' : 'red';
   const cls = {
-    bg: isCredit ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100',
-    label: isCredit ? 'text-green-700' : 'text-red-700',
-    btn: isCredit ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500',
+    bg: isCredit ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100',
+    label: isCredit ? 'text-red-700' : 'text-green-700',
+    btn: isCredit ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500',
   };
 
   return (
@@ -83,15 +83,15 @@ export default function AjustementsSection({ ajustements, onChange }: Props) {
 
   return (
     <div className="mb-4 space-y-3">
-      {/* Ce que le client me doit */}
+      {/* Il me doit → soustrait du total */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
-            Il me doit <span className="normal-case font-normal text-stone-400">(ajoute au total)</span>
+          <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">
+            Il me doit <span className="normal-case font-normal text-stone-400">(soustrait du total)</span>
           </span>
           <button
             onClick={() => setOpenForm(openForm === 'credit' ? null : 'credit')}
-            className="text-xs text-green-600 hover:text-green-700 font-medium"
+            className="text-xs text-red-600 hover:text-red-700 font-medium"
           >
             {openForm === 'credit' ? 'Annuler' : '+ Ajouter'}
           </button>
@@ -99,38 +99,6 @@ export default function AjustementsSection({ ajustements, onChange }: Props) {
         {credits.length > 0 && (
           <div className="space-y-1 mb-1.5">
             {credits.map((a, i) => {
-              const realIdx = ajustements.indexOf(a);
-              return (
-                <div key={i} className="flex items-center justify-between text-sm bg-green-50 border border-green-100 rounded px-2 py-1.5">
-                  <span className="text-stone-600 truncate flex-1">{a.label}</span>
-                  <span className="text-green-600 font-medium ml-2 shrink-0">+ {formatFCFA(a.amount)}</span>
-                  <button onClick={() => remove(realIdx)} className="text-stone-300 hover:text-red-400 ml-2 font-bold text-base leading-none">×</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {openForm === 'credit' && (
-          <AddForm type="credit" defaultLabel="Sandwich non payé" onAdd={add} onClose={() => setOpenForm(null)} />
-        )}
-      </div>
-
-      {/* Ce que je dois au client */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">
-            Je lui dois <span className="normal-case font-normal text-stone-400">(soustrait du total)</span>
-          </span>
-          <button
-            onClick={() => setOpenForm(openForm === 'deduction' ? null : 'deduction')}
-            className="text-xs text-red-600 hover:text-red-700 font-medium"
-          >
-            {openForm === 'deduction' ? 'Annuler' : '+ Ajouter'}
-          </button>
-        </div>
-        {deductions.length > 0 && (
-          <div className="space-y-1 mb-1.5">
-            {deductions.map((a, i) => {
               const realIdx = ajustements.indexOf(a);
               return (
                 <div key={i} className="flex items-center justify-between text-sm bg-red-50 border border-red-100 rounded px-2 py-1.5">
@@ -142,8 +110,40 @@ export default function AjustementsSection({ ajustements, onChange }: Props) {
             })}
           </div>
         )}
+        {openForm === 'credit' && (
+          <AddForm type="credit" defaultLabel="Avoir / trop-perçu" onAdd={add} onClose={() => setOpenForm(null)} />
+        )}
+      </div>
+
+      {/* Je lui dois → ajoute au total */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
+            Je lui dois <span className="normal-case font-normal text-stone-400">(ajoute au total)</span>
+          </span>
+          <button
+            onClick={() => setOpenForm(openForm === 'deduction' ? null : 'deduction')}
+            className="text-xs text-green-600 hover:text-green-700 font-medium"
+          >
+            {openForm === 'deduction' ? 'Annuler' : '+ Ajouter'}
+          </button>
+        </div>
+        {deductions.length > 0 && (
+          <div className="space-y-1 mb-1.5">
+            {deductions.map((a, i) => {
+              const realIdx = ajustements.indexOf(a);
+              return (
+                <div key={i} className="flex items-center justify-between text-sm bg-green-50 border border-green-100 rounded px-2 py-1.5">
+                  <span className="text-stone-600 truncate flex-1">{a.label}</span>
+                  <span className="text-green-600 font-medium ml-2 shrink-0">+ {formatFCFA(a.amount)}</span>
+                  <button onClick={() => remove(realIdx)} className="text-stone-300 hover:text-red-400 ml-2 font-bold text-base leading-none">×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {openForm === 'deduction' && (
-          <AddForm type="deduction" defaultLabel="Restant facture précédente" onAdd={add} onClose={() => setOpenForm(null)} />
+          <AddForm type="deduction" defaultLabel="Reste à payer facture précédente" onAdd={add} onClose={() => setOpenForm(null)} />
         )}
       </div>
     </div>

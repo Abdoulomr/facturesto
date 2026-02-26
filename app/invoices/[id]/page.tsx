@@ -414,15 +414,15 @@ export default function InvoiceDetailPage() {
                   <span>{formatFCFA(subtotal)}</span>
                 </div>
                 {credits.map((d) => (
-                  <div key={d.id} className="flex justify-between items-center text-sm text-green-600">
-                    <span>{d.label}</span>
-                    <span>+ {formatFCFA(d.amount)}</span>
-                  </div>
-                ))}
-                {trueDeductions.map((d) => (
                   <div key={d.id} className="flex justify-between items-center text-sm text-red-600">
                     <span>{d.label}</span>
                     <span>− {formatFCFA(d.amount)}</span>
+                  </div>
+                ))}
+                {trueDeductions.map((d) => (
+                  <div key={d.id} className="flex justify-between items-center text-sm text-green-600">
+                    <span>{d.label}</span>
+                    <span>+ {formatFCFA(d.amount)}</span>
                   </div>
                 ))}
                 <div className="border-t border-stone-200" />

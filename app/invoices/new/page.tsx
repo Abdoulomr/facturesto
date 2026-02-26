@@ -3,27 +3,50 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatFCFA } from '../../lib/store';
-import { Product, InvoiceItem } from '../../lib/types';
+import { Product } from '../../lib/types';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Separator } from '@/app/components/ui/separator';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import AjustementsSection, { Ajustement } from '@/app/components/AjustementsSection';
+
+type CartItem = {
+  itemId: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  total: number;
+};
+
+type ModalState = {
+  open: boolean;
+  isCustom: boolean;
+  productId: string;
+  productName: string;
+  price: string;
+  qty: string;
+};
+
+const MODAL_CLOSED: ModalState = {
+  open: false, isCustom: false, productId: '', productName: '', price: '', qty: '1',
+};
 
 export default function NewInvoicePage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
-  const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>([]);
   const [tableNumber, setTableNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [emptyCartDialog, setEmptyCartDialog] = useState(false);
   const [ajustements, setAjustements] = useState<Ajustement[]>([]);
+  const [modal, setModal] = useState<ModalState>(MODAL_CLOSED);
 
   useEffect(() => {
     fetch('/api/products').then((r) => r.json()).then(setProducts);
@@ -34,36 +57,58 @@ export default function NewInvoicePage() {
   );
 
   function getQty(productId: string) {
-    return items.find((i) => i.productId === productId)?.quantity ?? 0;
+    return items.filter((i) => i.productId === productId).reduce((s, i) => s + i.quantity, 0);
   }
 
-  function addProduct(product: Product) {
-    const existing = items.find((i) => i.productId === product.id);
-    if (existing) {
-      updateQty(product.id, existing.quantity + 1);
-    } else {
-      setItems((prev) => [...prev, {
-        productId: product.id, productName: product.name,
-        unitPrice: product.price, quantity: 1, total: product.price,
-      }]);
-    }
+  function openModal(product: Product) {
+    setModal({
+      open: true, isCustom: false,
+      productId: product.id, productName: product.name,
+      price: String(product.price), qty: '1',
+    });
   }
 
-  function updateQty(productId: string, qty: number) {
-    if (qty <= 0) { setItems((prev) => prev.filter((i) => i.productId !== productId)); return; }
+  function openCustomModal() {
+    setModal({ open: true, isCustom: true, productId: '', productName: '', price: '', qty: '1' });
+  }
+
+  function confirmAdd() {
+    const price = parseFloat(modal.price.replace(',', '.'));
+    const qty = parseInt(modal.qty);
+    if (!modal.productName.trim() || isNaN(price) || price < 0 || isNaN(qty) || qty <= 0) return;
+    setItems((prev) => [...prev, {
+      itemId: crypto.randomUUID(),
+      productId: modal.productId,
+      productName: modal.productName.trim(),
+      unitPrice: price,
+      quantity: qty,
+      total: price * qty,
+    }]);
+    setModal(MODAL_CLOSED);
+  }
+
+  function updateQty(itemId: string, qty: number) {
+    if (qty <= 0) { setItems((prev) => prev.filter((i) => i.itemId !== itemId)); return; }
     setItems((prev) => prev.map((i) =>
-      i.productId === productId ? { ...i, quantity: qty, total: i.unitPrice * qty } : i
+      i.itemId === itemId ? { ...i, quantity: qty, total: i.unitPrice * qty } : i
     ));
   }
 
-  function removeItem(productId: string) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+  function removeItem(itemId: string) {
+    setItems((prev) => prev.filter((i) => i.itemId !== itemId));
   }
 
   const subtotal = items.reduce((s, i) => s + i.total, 0);
   const creditTotal = ajustements.filter((a) => a.type === 'credit').reduce((s, a) => s + a.amount, 0);
   const deductTotal = ajustements.filter((a) => a.type === 'deduction').reduce((s, a) => s + a.amount, 0);
-  const total = Math.max(0, subtotal + creditTotal - deductTotal);
+  // credit (il me doit) soustrait ; deduction (je lui dois) ajoute
+  const total = Math.max(0, subtotal - creditTotal + deductTotal);
+
+  const modalPriceNum = parseFloat(modal.price.replace(',', '.'));
+  const modalQtyNum = parseInt(modal.qty);
+  const modalTotal = !isNaN(modalPriceNum) && !isNaN(modalQtyNum) && modalQtyNum > 0
+    ? modalPriceNum * modalQtyNum
+    : null;
 
   async function handleSubmit() {
     if (items.length === 0) { setEmptyCartDialog(true); return; }
@@ -90,7 +135,7 @@ export default function NewInvoicePage() {
             {filteredProducts.map((product) => {
               const qty = getQty(product.id);
               return (
-                <button key={product.id} onClick={() => addProduct(product)}
+                <button key={product.id} onClick={() => openModal(product)}
                   className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${qty > 0 ? 'border-amber-500 bg-amber-50' : 'border-stone-200 bg-white hover:border-amber-300 hover:bg-amber-50'}`}>
                   <div className="font-semibold text-stone-800 text-sm">{product.name}</div>
                   <div className="text-stone-500 text-xs mt-1">{formatFCFA(product.price)} / {product.unit}</div>
@@ -105,8 +150,17 @@ export default function NewInvoicePage() {
             })}
           </div>
           {filteredProducts.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground"><p>Aucun produit trouvé.</p></div>
+            <div className="text-center py-8 text-muted-foreground"><p>Aucun produit trouvé.</p></div>
           )}
+          {/* Produit libre */}
+          <div className="mt-4">
+            <button
+              onClick={openCustomModal}
+              className="w-full p-3 rounded-xl border-2 border-dashed border-stone-300 hover:border-amber-400 hover:bg-amber-50 transition-all text-stone-500 hover:text-amber-700 text-sm font-medium"
+            >
+              + Produit libre (nom &amp; prix personnalisés)
+            </button>
+          </div>
         </div>
 
         {/* Right: summary */}
@@ -134,18 +188,18 @@ export default function NewInvoicePage() {
               ) : (
                 <div className="space-y-2 mb-4 max-h-52 overflow-y-auto">
                   {items.map((item) => (
-                    <div key={item.productId} className="flex items-center gap-2 py-2 border-b border-stone-100 last:border-0">
+                    <div key={item.itemId} className="flex items-center gap-2 py-2 border-b border-stone-100 last:border-0">
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-stone-700 truncate">{item.productName}</div>
                         <div className="text-xs text-muted-foreground">{formatFCFA(item.unitPrice)} / unité</div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => updateQty(item.productId, item.quantity - 1)} className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center text-sm font-bold leading-none transition-colors">−</button>
+                        <button onClick={() => updateQty(item.itemId, item.quantity - 1)} className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center text-sm font-bold leading-none transition-colors">−</button>
                         <span className="w-6 text-center text-sm font-semibold text-stone-800">{item.quantity}</span>
-                        <button onClick={() => updateQty(item.productId, item.quantity + 1)} className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center text-sm font-bold leading-none transition-colors">+</button>
+                        <button onClick={() => updateQty(item.itemId, item.quantity + 1)} className="w-6 h-6 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center text-sm font-bold leading-none transition-colors">+</button>
                       </div>
                       <div className="w-20 text-right text-sm font-semibold text-stone-800 shrink-0">{formatFCFA(item.total)}</div>
-                      <button onClick={() => removeItem(item.productId)} className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors ml-1" title="Retirer">×</button>
+                      <button onClick={() => removeItem(item.itemId)} className="text-stone-300 hover:text-red-400 text-lg leading-none transition-colors ml-1" title="Retirer">×</button>
                     </div>
                   ))}
                 </div>
@@ -164,13 +218,13 @@ export default function NewInvoicePage() {
                         <span>Sous-total</span><span>{formatFCFA(subtotal)}</span>
                       </div>
                       {creditTotal > 0 && (
-                        <div className="flex justify-between text-sm text-green-600">
-                          <span>Il me doit</span><span>+ {formatFCFA(creditTotal)}</span>
+                        <div className="flex justify-between text-sm text-red-600">
+                          <span>Il me doit</span><span>− {formatFCFA(creditTotal)}</span>
                         </div>
                       )}
                       {deductTotal > 0 && (
-                        <div className="flex justify-between text-sm text-red-600">
-                          <span>Je lui dois</span><span>− {formatFCFA(deductTotal)}</span>
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Je lui dois</span><span>+ {formatFCFA(deductTotal)}</span>
                         </div>
                       )}
                     </div>
@@ -189,11 +243,78 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
+      {/* Modal ajout produit */}
+      <AlertDialog open={modal.open} onOpenChange={(open) => !open && setModal(MODAL_CLOSED)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{modal.isCustom ? 'Produit libre' : modal.productName}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            {modal.isCustom && (
+              <div className="space-y-1">
+                <Label>Nom du produit</Label>
+                <Input
+                  value={modal.productName}
+                  onChange={(e) => setModal((m) => ({ ...m, productName: e.target.value }))}
+                  placeholder="ex: Café spécial"
+                  autoFocus
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Prix (FCFA)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={modal.price}
+                  onChange={(e) => setModal((m) => ({ ...m, price: e.target.value }))}
+                  placeholder="0"
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  autoFocus={!modal.isCustom}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Quantité</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={modal.qty}
+                  onChange={(e) => setModal((m) => ({ ...m, qty: e.target.value }))}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+            {modalTotal !== null && (
+              <p className="text-sm font-semibold text-stone-700 text-right">
+                = {formatFCFA(modalTotal)}
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <Button
+              onClick={confirmAdd}
+              disabled={
+                !modal.productName.trim() ||
+                !modal.price ||
+                isNaN(parseFloat(modal.price)) ||
+                !modal.qty ||
+                isNaN(parseInt(modal.qty)) ||
+                parseInt(modal.qty) <= 0
+              }
+              className="bg-amber-600 hover:bg-amber-500 text-white"
+            >
+              Ajouter
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={emptyCartDialog} onOpenChange={setEmptyCartDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Panier vide</AlertDialogTitle>
-            <AlertDialogDescription>Veuillez ajouter au moins un article à la facture.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setEmptyCartDialog(false)}>OK</AlertDialogAction>
