@@ -50,7 +50,7 @@ export default function InvoicesPage() {
       body: JSON.stringify({ status: next }),
     });
     setInvoices((prev) =>
-      prev.map((inv) => (inv.id === id ? { ...inv, status: next as const } : inv))
+      prev.map((inv) => (inv.id === id ? { ...inv, status: next as 'pending' | 'paid' } : inv))
     );
   }
 
