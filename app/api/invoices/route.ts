@@ -36,9 +36,10 @@ export async function POST(request: Request) {
       notes: notes ?? '',
       createdById: session?.user?.id ?? null,
       deductions: deductions && deductions.length > 0 ? {
-        create: (deductions as { label: string; amount: number }[]).map((d) => ({
+        create: (deductions as { label: string; amount: number; type?: string }[]).map((d) => ({
           label: d.label,
           amount: d.amount,
+          type: d.type ?? 'deduction',
         })),
       } : undefined,
       items: {

@@ -193,6 +193,8 @@ export default function InvoiceDetailPage() {
   if (!invoice) return null;
 
   const subtotal = invoice.items.reduce((s, i) => s + i.total, 0);
+  const trueDeductions = invoice.deductions.filter((d) => d.type !== 'credit');
+  const credits = invoice.deductions.filter((d) => d.type === 'credit');
   const hasDeductions = invoice.deductions.length > 0;
 
   const formattedDate = new Date(invoice.date).toLocaleDateString('fr-FR', {
@@ -409,7 +411,13 @@ export default function InvoiceDetailPage() {
                   <span>Sous-total</span>
                   <span>{formatFCFA(subtotal)}</span>
                 </div>
-                {invoice.deductions.map((d) => (
+                {credits.map((d) => (
+                  <div key={d.id} className="flex justify-between items-center text-sm text-green-600">
+                    <span>{d.label}</span>
+                    <span>+ {formatFCFA(d.amount)}</span>
+                  </div>
+                ))}
+                {trueDeductions.map((d) => (
                   <div key={d.id} className="flex justify-between items-center text-sm text-red-600">
                     <span>{d.label}</span>
                     <span>− {formatFCFA(d.amount)}</span>

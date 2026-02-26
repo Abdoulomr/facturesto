@@ -100,7 +100,7 @@ export default function EditInvoicePage() {
 
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
   const creditsTotal = credits.reduce((sum, c) => sum + c.amount, 0);
-  const total = Math.max(0, subtotal - creditsTotal);
+  const total = subtotal + creditsTotal;
 
   async function handleSave() {
     if (items.length === 0) return;
@@ -109,7 +109,7 @@ export default function EditInvoicePage() {
       await fetch(`/api/invoices/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, total, tableNumber, notes, deductions: credits }),
+        body: JSON.stringify({ items, total, tableNumber, notes, deductions: credits.map((c) => ({ ...c, type: 'credit' })) }),
       });
       router.push(`/invoices/${id}`);
     } finally {

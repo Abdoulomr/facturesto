@@ -34,6 +34,7 @@ model Deduction {
   id        String  @id @default(cuid())
   label     String
   amount    Float
+  type      String  @default("deduction")
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }

@@ -17,6 +17,7 @@ export type Deduction = {
   id: string;
   label: string;
   amount: number;
+  type: 'deduction' | 'credit';
 };
 
 export type InvoiceCreator = {

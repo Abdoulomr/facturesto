@@ -99,7 +99,7 @@ export default function NewInvoicePage() {
 
   const subtotal = items.reduce((sum, i) => sum + i.total, 0);
   const creditsTotal = credits.reduce((sum, c) => sum + c.amount, 0);
-  const total = Math.max(0, subtotal - creditsTotal);
+  const total = subtotal + creditsTotal;
 
   async function handleSubmit() {
     if (items.length === 0) {
@@ -114,7 +114,7 @@ export default function NewInvoicePage() {
         total,
         tableNumber,
         notes,
-        deductions: credits,
+        deductions: credits.map((c) => ({ ...c, type: 'credit' })),
       }),
     });
     const invoice = await res.json();
