@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authClient } from '@/app/lib/auth-client';
 import { Button } from '@/app/components/ui/button';
@@ -8,7 +8,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Card, CardContent } from '@/app/components/ui/card';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
@@ -34,7 +34,7 @@ export default function LoginPage() {
       } else {
         const result = await authClient.signUp.email({ email, password, name });
         if (result.error) {
-          setError(result.error.message ?? 'Erreur lors de l\'inscription');
+          setError(result.error.message ?? "Erreur lors de l'inscription");
           return;
         }
       }
@@ -55,7 +55,6 @@ export default function LoginPage() {
 
         <Card>
           <CardContent className="p-6">
-            {/* Tabs */}
             <div className="flex border-b border-stone-200 mb-6">
               <button
                 onClick={() => { setTab('signin'); setError(''); }}
@@ -143,5 +142,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
